@@ -27,12 +27,19 @@ class SocialProfile(Base):
     platform = Column(String)
     url = Column(String)
     followers = Column(Integer)
-    source_message = Column(Text)  # NEW: Full message where this URL was extracted
+    source_message = Column(Text)
 
 class ParsedLog(Base):
     __tablename__ = 'parsed_log'
     id = Column(Integer, primary_key=True)
     channel = Column(String)
     last_parsed = Column(DateTime)
+
+class MessageLog(Base):
+    __tablename__ = 'message_log'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String)
+    channel = Column(String)
+    content = Column(Text)
 
 Base.metadata.create_all(engine)
