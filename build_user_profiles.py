@@ -1,86 +1,97 @@
-# build_user_profiles.py
 import argparse
 from datetime import datetime
-from models import session, WelcomeUser
-from config import DB_URL
-from sqlalchemy import create_engine, text
 import json
+import re
+from sqlalchemy import and_
+from models import session, WelcomeUser, MessageLog
+from config import GEMINI_API_KEY
 import google.generativeai as genai
 
-from config import GEMINI_API_KEY
-
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-pro-latest")
+model = genai.GenerativeModel("gemini-2.0-flash")
 
-# Fields to extract via LLM
 EXPECTED_FIELDS = [
     "name", "surname", "age", "geo", "occupation", "company", "where_learned_about_mago",
     "youtube", "instagram", "linkedin", "twitter", "bluesky", "soundcloud"
 ]
 
-# Prompt for Gemini
 PROMPT_TEMPLATE = """
-You are given user profile messages from a Discord community. Your job is to extract structured info.
+You are given multiple messages in different channels of a single user from a Discord community. Extract structured information.
 
 Messages:
 {messages}
 
-Return a JSON with the following keys (even if some are empty):
+Return a single JSON with the following keys (even if some are unknown or empty):
 name, surname, age, geo, occupation, company, where_learned_about_mago,
 youtube, instagram, linkedin, twitter, bluesky, soundcloud
 """
 
-def get_user_messages(user_id):
-    engine = create_engine(DB_URL)
-    with engine.connect() as conn:
-        result = conn.execute(text("""
-            SELECT 'welcome' AS source, m.content FROM message_log m
-            WHERE m.user_id = :user_id AND m.channel = 'welcome'
-            UNION ALL
-            SELECT 'introductions', m.content FROM message_log m
-            WHERE m.user_id = :user_id AND m.channel = 'introductions'
-            UNION ALL
-            SELECT 'social-share', m.content FROM message_log m
-            WHERE m.user_id = :user_id AND m.channel = 'social-share'
-        """), {"user_id": user_id})
-        messages = [f"[{row.source}] {row.content}" for row in result]
-    return "\n".join(messages)
+def parse_markdown_json(text):
+    """Extract JSON from markdown code blocks or plain text"""
+    # First try to find JSON in code blocks
+    json_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+    match = re.search(json_pattern, text, re.DOTALL)
+    if match:
+        return match.group(1)
+    
+    # If no code blocks, try to find JSON object directly
+    json_pattern = r'(\{.*\})'
+    match = re.search(json_pattern, text, re.DOTALL)
+    if match:
+        return match.group(1)
+    
+    return text
 
-def build_profile(user_id, combined_message):
-    prompt = PROMPT_TEMPLATE.format(messages=combined_message)
+def build_prompt(messages):
+    formatted = "\n".join(
+        f"[{msg.channel}] ({msg.timestamp.strftime('%Y-%m-%d')}): {msg.content.strip()}"
+        for msg in messages if msg.content.strip()
+    )
+    return PROMPT_TEMPLATE.format(messages=formatted)
+
+def build_profile(user, messages):
+    prompt = build_prompt(messages)
     try:
+        print('prompt', prompt)
         response = model.generate_content(prompt)
-        parsed = json.loads(response.text)
+        print('response', response.text)
+        
+        # Parse the markdown JSON response
+        json_text = parse_markdown_json(response.text)
+        data = json.loads(json_text)
+        
         for key in EXPECTED_FIELDS:
-            parsed.setdefault(key, "")
-        return parsed
+            data.setdefault(key, "")
+        return data
     except Exception as e:
-        print(f"❌ Failed for user {user_id}: {e}")
+        print(f"❌ Gemini failed for {user}: {e}")
         return {}
 
 def main(start, end, output_file):
-    users = session.query(WelcomeUser).filter(
-        WelcomeUser.joined_at >= start,
-        WelcomeUser.joined_at <= end
-    ).all()
+    # Get unique user_ids from MessageLog within the date range
+    users = session.query(MessageLog.user_id, MessageLog.username).filter(
+        and_(MessageLog.timestamp >= start, MessageLog.timestamp <= end)
+    ).distinct().all()
 
-    all_profiles = []
-
+    results = []
+    print(f"🧠 Building profiles for {len(users)} users")
     for user in users:
-        print(f"🧠 Building profile for {user.username}")
-        combined_msg = get_user_messages(user.user_id)
-        profile_data = build_profile(user.user_id, combined_msg)
-        profile_data.update({
+        messages = session.query(MessageLog).filter_by(user_id=user.user_id).order_by(MessageLog.timestamp).all()
+        if not messages:
+            continue
+        else:
+            print(f"🧠 Building profile for {user.username} ({len(messages)} messages)")
+        profile = build_profile(user, messages)
+        profile.update({
             "user_id": user.user_id,
             "username": user.username,
-            "joined_at": user.joined_at.isoformat(),
+        #     "joined_at": user.joined_at.isoformat(),
         })
-        all_profiles.append(profile_data)
+        results.append(profile)
 
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(all_profiles, f, indent=2)
-
-    print(f"✅ Saved {len(all_profiles)} profiles to {output_file}")
+        json.dump(results, f, indent=2)
+    print(f"✅ Saved {len(results)} profiles to {output_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -89,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=str, default="user_profiles.json")
     args = parser.parse_args()
 
-    start = datetime.strptime(args.start, "%Y-%m-%d")
-    end = datetime.strptime(args.end, "%Y-%m-%d")
+    start_date = datetime.strptime(args.start, "%Y-%m-%d")
+    end_date = datetime.strptime(args.end, "%Y-%m-%d")
 
-    main(start, end, args.out)
+    main(start_date, end_date, args.out)

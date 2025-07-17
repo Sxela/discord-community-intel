@@ -7,3 +7,5 @@ DB_URL = "sqlite:///community.db"
 WELCOME_CHANNEL_NAME = "welcome"
 INTRO_CHANNEL_NAME = "introductions"
 SOCIAL_SHARE_CHANNEL_NAME = "social-share"
+
+GEMINI_API_KEY = ''

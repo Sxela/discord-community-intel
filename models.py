@@ -37,9 +37,11 @@ class ParsedLog(Base):
 
 class MessageLog(Base):
     __tablename__ = 'message_log'
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(String, primary_key=True)  # Discord message ID
     user_id = Column(String)
     channel = Column(String)
     content = Column(Text)
+    timestamp = Column(DateTime)
+    username = Column(String)
 
 Base.metadata.create_all(engine)
