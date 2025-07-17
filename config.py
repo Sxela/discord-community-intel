@@ -1,0 +1,4 @@
+# config.py
+DISCORD_BOT_TOKEN = "YOUR_DISCORD_BOT_TOKEN"
+YOUTUBE_API_KEY = "YOUR_YOUTUBE_API_KEY"
+DB_URL = "sqlite:///community.db"
