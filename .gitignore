@@ -209,3 +209,4 @@ __marimo__/
 config.py
 *.db
 community.db-journal
+user_profiles_full.json

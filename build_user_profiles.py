@@ -49,12 +49,18 @@ def build_prompt(messages):
     )
     return PROMPT_TEMPLATE.format(messages=formatted)
 
+def format_messages_readable(messages):
+    """Format messages in a human-readable format"""
+    return [f'[{msg.channel}] ({msg.timestamp.strftime("%Y-%m-%d %H:%M:%S")}): {msg.content.strip()}'
+        for msg in messages if msg.content.strip()
+        ]
+
 def build_profile(user, messages):
     prompt = build_prompt(messages)
     try:
-        print('prompt', prompt)
+        # print('prompt', prompt)
         response = model.generate_content(prompt)
-        print('response', response.text)
+        # print('response', response.text)
         
         # Parse the markdown JSON response
         json_text = parse_markdown_json(response.text)
@@ -81,13 +87,31 @@ def main(start, end, output_file):
             continue
         else:
             print(f"🧠 Building profile for {user.username} ({len(messages)} messages)")
+        
         profile = build_profile(user, messages)
-        profile.update({
-            "user_id": user.user_id,
-            "username": user.username,
-        #     "joined_at": user.joined_at.isoformat(),
-        })
-        results.append(profile)
+        
+        # Check if all profile fields are null/empty
+        profile_fields_empty = all(
+            not profile.get(field) or profile.get(field) in [None, "", "null", "None"]
+            for field in EXPECTED_FIELDS
+        )
+        
+        if profile_fields_empty:
+            # Compact output with only essential fields
+            compact_profile = {
+                "user_id": user.user_id,
+                "username": user.username,
+                "messages": format_messages_readable(messages)
+            }
+            results.append(compact_profile)
+        else:
+            # Full profile with all fields
+            profile.update({
+                "user_id": user.user_id,
+                "username": user.username,
+                "messages": format_messages_readable(messages)
+            })
+            results.append(profile)
 
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
