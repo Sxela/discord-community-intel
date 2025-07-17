@@ -141,4 +141,4 @@ PRs welcome! This is an internal tool built for real-world Discord community man
 
 ## 📄 License
 
-MIT License © 2025
+Apache-2.0 © 2025
