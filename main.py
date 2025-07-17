@@ -6,7 +6,12 @@ from datetime import datetime, timedelta
 from models import session, WelcomeUser, Introduction, SocialProfile, ParsedLog
 from utils import extract_socials
 from scraper import fetch_followers
-from config import DISCORD_BOT_TOKEN
+from config import (
+    DISCORD_BOT_TOKEN,
+    WELCOME_CHANNEL_NAME,
+    INTRO_CHANNEL_NAME,
+    SOCIAL_SHARE_CHANNEL_NAME,
+)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -28,18 +33,24 @@ extended_end = end + timedelta(days=2)
 async def on_ready():
     print(f"✅ Logged in as {client.user}")
     guild = discord.utils.get(client.guilds)
-    welcome_channel = discord.utils.get(guild.text_channels, name='welcome')
-    intro_channel = discord.utils.get(guild.text_channels, name='introductions')
-    social_share_channel = discord.utils.get(guild.text_channels, name='social-share')
+
+    # Use channel names from config
+    welcome_channel = discord.utils.get(guild.text_channels, name=WELCOME_CHANNEL_NAME)
+    intro_channel = discord.utils.get(guild.text_channels, name=INTRO_CHANNEL_NAME)
+    social_share_channel = discord.utils.get(guild.text_channels, name=SOCIAL_SHARE_CHANNEL_NAME)
+
+    if not all([welcome_channel, intro_channel, social_share_channel]):
+        print("❌ One or more channels could not be found. Please check the config values.")
+        return
 
     # Welcome
-    last_welcome = session.query(ParsedLog).filter_by(channel='welcome').first()
+    last_welcome = session.query(ParsedLog).filter_by(channel=WELCOME_CHANNEL_NAME).first()
     welcome_after = max(start, last_welcome.last_parsed) if last_welcome else start
     async for msg in welcome_channel.history(limit=1000, after=welcome_after, before=end):
         uid = str(msg.author.id)
         if not session.query(WelcomeUser).filter_by(user_id=uid).first():
             session.add(WelcomeUser(user_id=uid, username=str(msg.author), joined_at=msg.created_at))
-    session.merge(ParsedLog(channel='welcome', last_parsed=end))
+    session.merge(ParsedLog(channel=WELCOME_CHANNEL_NAME, last_parsed=end))
     session.commit()
 
     user_ids = [u.user_id for u in session.query(WelcomeUser).all()]

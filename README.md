@@ -56,6 +56,52 @@ DB_URL = "sqlite:///community.db"
 
 ---
 
+## 🔐 Discord Token & Bot Permissions
+
+To run this bot, you'll need to create a Discord bot and give it proper permissions.
+
+### 1. Create a Bot on Discord Developer Portal
+
+- Go to: https://discord.com/developers/applications
+- Click **"New Application"** → give it a name
+- Go to **Bot** → click **"Add Bot"**
+- Copy the **bot token** and paste it into `config.py`:
+
+```python
+DISCORD_BOT_TOKEN = "your-discord-token"
+```
+
+---
+
+### 2. Enable Required Privileged Intents
+
+In the **Bot** settings, under **Privileged Gateway Intents**, enable:
+
+- ✅ `MESSAGE CONTENT INTENT`
+- ✅ `SERVER MEMBERS INTENT`
+
+---
+
+### 3. Invite the Bot to Your Server
+
+Go to the **OAuth2 > URL Generator**, select:
+
+- **Scopes**:
+  - `bot`
+- **Bot Permissions**:
+  - `Read Message History`
+  - `View Channels`
+  - `Read Messages/View Channels`
+  - `Send Messages`
+  - `Manage Messages` (optional)
+  - `Use Slash Commands` (optional if extended)
+
+Generate the URL, open it in your browser, and invite the bot to your server.
+
+You're now ready to run the bot!
+
+---
+
 ## 🚀 Usage
 
 ### 1. Parse Discord Messages
