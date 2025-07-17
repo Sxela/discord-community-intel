@@ -39,6 +39,12 @@ async def on_ready():
     intro_channel = discord.utils.get(guild.text_channels, name=INTRO_CHANNEL_NAME)
     social_share_channel = discord.utils.get(guild.text_channels, name=SOCIAL_SHARE_CHANNEL_NAME)
 
+    for channel, name in zip([welcome_channel, intro_channel, social_share_channel], [WELCOME_CHANNEL_NAME, INTRO_CHANNEL_NAME, SOCIAL_SHARE_CHANNEL_NAME]):
+        print(f"📝 Parsing {name} channel with id {channel.id}")
+        if not channel:
+            print(f"❌ {name} channel could not be found. Please check the config values.")
+            return
+
     if not all([welcome_channel, intro_channel, social_share_channel]):
         print("❌ One or more channels could not be found. Please check the config values.")
         return

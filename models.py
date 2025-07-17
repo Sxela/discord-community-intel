@@ -27,6 +27,7 @@ class SocialProfile(Base):
     platform = Column(String)
     url = Column(String)
     followers = Column(Integer)
+    source_message = Column(Text)  # NEW: Full message where this URL was extracted
 
 class ParsedLog(Base):
     __tablename__ = 'parsed_log'
